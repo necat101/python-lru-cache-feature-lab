@@ -92,7 +92,8 @@
       "mutation_target_valid": true,
       "cache_hits": 0,
       "cache_misses": 0,
-      "cache_currsize": 0
+      "cache_currsize": 0,
+      "extractor_probed": true
     }
   },
   {
@@ -147,7 +148,8 @@
       "cache_hits": 0,
       "cache_misses": 0,
       "cache_currsize": 0,
-      "exec_count": 0
+      "exec_count": 0,
+      "extractor_probed": true
     }
   },
   {

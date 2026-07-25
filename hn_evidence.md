@@ -5,6 +5,12 @@ Story: "Functools – The Power of Higher-Order Functions in Python"
 HN item JSON: `hn_story_27768211.json`  
 Full thread dump: `hn_evidence.jsonl`
 
+Hacker News thread read with:
+
+```
+hackernews get-item --id 27768211
+```
+
 ## Linked article claims
 
 From https://martinheinz.dev/blog/52 (mirrored at https://towardsdatascience.com/functools-the-power-of-higher-order-functions-in-python-8e6e61c6e4e4):
