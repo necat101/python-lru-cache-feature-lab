@@ -28,6 +28,103 @@ FEATURE_LIST = [0.1, 0.2, 0.3]
 FEATURE_TUPLE = (0.1, 0.2, 0.3)
 
 # ----------------------------------------------------------------------
+# Production input check helpers
+# These are the actual input validators used by the inspect_inputs rows.
+# Tests call these same helpers with corrupted inputs.
+# ----------------------------------------------------------------------
+
+
+def check_repeated_inputs(
+    input_val: Any,
+    cache_hits: int,
+    cache_misses: int,
+    cache_currsize: int,
+    exec_count: int,
+) -> bool:
+    """Validate inputs for repeated_feature_cache_hit_marker."""
+    if not isinstance(input_val, str):
+        return False
+    try:
+        hash(input_val)
+    except TypeError:
+        return False
+    if cache_hits != 0 or cache_misses != 0 or cache_currsize != 0:
+        return False
+    if exec_count != 0:
+        return False
+    return True
+
+
+def check_mutable_inputs(
+    extractor_result: Any,
+    cache_hits: int,
+    cache_misses: int,
+    cache_currsize: int,
+) -> bool:
+    """Validate inputs for mutable_cached_return_alias_marker.
+
+    Checks the actual extractor return value is a list with expected
+    initial values and is a valid mutation target.
+    """
+    if not isinstance(extractor_result, list):
+        return False
+    if extractor_result != FEATURE_LIST:
+        return False
+    if len(extractor_result) == 0:
+        return False
+    if cache_hits != 0 or cache_misses != 0 or cache_currsize != 0:
+        return False
+    return True
+
+
+def check_immutable_inputs(
+    extractor_result: Any,
+    cache_hits: int,
+    cache_misses: int,
+    cache_currsize: int,
+    exec_count: int,
+) -> bool:
+    """Validate inputs for immutable_cached_tuple_marker.
+
+    Checks the actual extractor return value is a tuple with expected values.
+    """
+    if not isinstance(extractor_result, tuple):
+        return False
+    if extractor_result != FEATURE_TUPLE:
+        return False
+    if cache_hits != 0 or cache_misses != 0 or cache_currsize != 0:
+        return False
+    if exec_count != 0:
+        return False
+    return True
+
+
+def check_unhashable_inputs(
+    input_val: Any,
+    exec_count: int,
+    cache_hits: int,
+    cache_misses: int,
+) -> bool:
+    """Validate inputs for unhashable_list_argument_marker.
+
+    Confirms the input is a list (unhashable) and cache is clean.
+    """
+    if not isinstance(input_val, list):
+        return False
+    try:
+        hash(input_val)
+        # if hash succeeds, input is hashable – reject
+        return False
+    except TypeError:
+        pass  # expected – list is unhashable
+    if exec_count != 0:
+        return False
+    if cache_hits != 0 or cache_misses != 0:
+        return False
+    return True
+
+
+# ----------------------------------------------------------------------
 # Repeated feature / cache hit
 # ----------------------------------------------------------------------
 
@@ -48,28 +145,28 @@ def repeated_feature_cache_hit_marker_inspect_inputs() -> Dict[str, Any]:
     _repeated_exec_count = 0
 
     info = _repeated_extractor.cache_info()
-    input_is_str = isinstance(SAMPLE_INPUT, str)
+
     try:
         hash(SAMPLE_INPUT)
         input_hashable = True
     except TypeError:
         input_hashable = False
 
-    passed = (
-        input_is_str
-        and input_hashable
-        and info.hits == 0
-        and info.misses == 0
-        and info.currsize == 0
-        and _repeated_exec_count == 0
+    passed = check_repeated_inputs(
+        SAMPLE_INPUT,
+        info.hits,
+        info.misses,
+        info.currsize,
+        _repeated_exec_count,
     )
+
     return {
         "case": "repeated_feature_cache_hit_marker",
         "method": "inspect_inputs",
         "passed": passed,
         "details": {
             "input": SAMPLE_INPUT,
-            "input_is_str": input_is_str,
+            "input_is_str": isinstance(SAMPLE_INPUT, str),
             "input_hashable": input_hashable,
             "cache_hits": info.hits,
             "cache_misses": info.misses,
@@ -194,30 +291,50 @@ def mutable_cached_return_alias_marker_inspect_inputs() -> Dict[str, Any]:
     global _mutable_exec_count
     _mutable_exec_count = 0
 
-    # inspect the extractor without polluting the real cache
-    test_vals = [0.1, 0.2, 0.3]
-    initial_ok = test_vals == FEATURE_LIST
-    mutation_target_valid = len(test_vals) > 0 and isinstance(test_vals, list)
-
     info = _mutable_extractor.cache_info()
-    passed = (
-        initial_ok
-        and mutation_target_valid
-        and info.hits == 0
-        and info.misses == 0
-        and info.currsize == 0
-    )
+
+    # Call the unwrapped extractor to verify the actual production
+    # extractor return, without polluting the cache.
+    try:
+        extractor_result = _mutable_extractor.__wrapped__(SAMPLE_INPUT)
+        extractor_ok = True
+    except Exception:
+        extractor_result = None
+        extractor_ok = False
+
+    # Reset exec counter and cache after the uncached probe so the
+    # case starts from the required empty state.
+    _mutable_exec_count = 0
+    _mutable_extractor.cache_clear()
+    info = _mutable_extractor.cache_info()
+
+    if extractor_ok:
+        passed = check_mutable_inputs(
+            extractor_result,
+            info.hits,
+            info.misses,
+            info.currsize,
+        )
+    else:
+        passed = False
+
     return {
         "case": "mutable_cached_return_alias_marker",
         "method": "inspect_inputs",
         "passed": passed,
         "details": {
             "expected_initial": FEATURE_LIST,
-            "initial_ok": initial_ok,
-            "mutation_target_valid": mutation_target_valid,
+            "initial_ok": extractor_result == FEATURE_LIST
+            if extractor_ok
+            else False,
+            "mutation_target_valid": isinstance(extractor_result, list)
+            and len(extractor_result) > 0
+            if extractor_ok
+            else False,
             "cache_hits": info.hits,
             "cache_misses": info.misses,
             "cache_currsize": info.currsize,
+            "extractor_probed": extractor_ok,
         },
     }
 
@@ -332,34 +449,49 @@ def immutable_cached_tuple_marker_inspect_inputs() -> Dict[str, Any]:
     global _immutable_exec_count
     _immutable_exec_count = 0
 
+    # Call the unwrapped extractor to verify the actual production
+    # extractor return, without polluting the cache.
+    try:
+        extractor_result = _immutable_extractor.__wrapped__(SAMPLE_INPUT)
+        extractor_ok = True
+    except Exception:
+        extractor_result = None
+        extractor_ok = False
+
+    # Reset exec counter and cache after the uncached probe so the
+    # case starts from the required empty state.
+    _immutable_exec_count = 0
+    _immutable_extractor.cache_clear()
     info = _immutable_extractor.cache_info()
 
-    # check extractor returns expected tuple
-    # do a dry call then clear so inspect doesn't pollute case state
-    # actually: we want to inspect without side effects, so check constants
-    returns_tuple = isinstance(FEATURE_TUPLE, tuple)
-    values_ok = FEATURE_TUPLE == (0.1, 0.2, 0.3)
+    if extractor_ok:
+        passed = check_immutable_inputs(
+            extractor_result,
+            info.hits,
+            info.misses,
+            info.currsize,
+            _immutable_exec_count,
+        )
+    else:
+        passed = False
 
-    passed = (
-        returns_tuple
-        and values_ok
-        and info.hits == 0
-        and info.misses == 0
-        and info.currsize == 0
-        and _immutable_exec_count == 0
-    )
     return {
         "case": "immutable_cached_tuple_marker",
         "method": "inspect_inputs",
         "passed": passed,
         "details": {
-            "returns_tuple": returns_tuple,
-            "values_ok": values_ok,
+            "returns_tuple": isinstance(extractor_result, tuple)
+            if extractor_ok
+            else False,
+            "values_ok": extractor_result == FEATURE_TUPLE
+            if extractor_ok
+            else False,
             "expected": list(FEATURE_TUPLE),
             "cache_hits": info.hits,
             "cache_misses": info.misses,
             "cache_currsize": info.currsize,
             "exec_count": _immutable_exec_count,
+            "extractor_probed": extractor_ok,
         },
     }
 
@@ -491,30 +623,21 @@ def unhashable_list_argument_marker_inspect_inputs() -> Dict[str, Any]:
     global _unhashable_exec_count
     _unhashable_exec_count = 0
 
+    info = _unhashable_extractor.cache_info()
+
     test_input = ["a", "b"]
-    input_is_list = isinstance(test_input, list)
 
-    try:
-        hash(tuple(test_input))
-        list_is_unhashable_marker = False
-    except TypeError:
-        list_is_unhashable_marker = True
-
-    # confirm list itself is unhashable
     try:
         hash(test_input)
         input_hashable = True
     except TypeError:
         input_hashable = False
 
-    info = _unhashable_extractor.cache_info()
-
-    passed = (
-        input_is_list
-        and not input_hashable
-        and _unhashable_exec_count == 0
-        and info.hits == 0
-        and info.misses == 0
+    passed = check_unhashable_inputs(
+        test_input,
+        _unhashable_exec_count,
+        info.hits,
+        info.misses,
     )
 
     return {
@@ -522,7 +645,7 @@ def unhashable_list_argument_marker_inspect_inputs() -> Dict[str, Any]:
         "method": "inspect_inputs",
         "passed": passed,
         "details": {
-            "input_is_list": input_is_list,
+            "input_is_list": isinstance(test_input, list),
             "input_hashable": input_hashable,
             "exec_count": _unhashable_exec_count,
             "cache_hits": info.hits,
