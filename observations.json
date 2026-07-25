@@ -1,0 +1,273 @@
+[
+  {
+    "case": "repeated_feature_cache_hit_marker",
+    "method": "inspect_inputs",
+    "passed": true,
+    "details": {
+      "input": "sample-1",
+      "input_is_str": true,
+      "input_hashable": true,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_currsize": 0,
+      "exec_count": 0
+    }
+  },
+  {
+    "case": "repeated_feature_cache_hit_marker",
+    "method": "execute_cache",
+    "passed": true,
+    "details": {
+      "info_before": {
+        "hits": 0,
+        "misses": 0,
+        "maxsize": 32,
+        "currsize": 0
+      },
+      "info_after_1": {
+        "hits": 0,
+        "misses": 1,
+        "maxsize": 32,
+        "currsize": 1
+      },
+      "info_after_2": {
+        "hits": 1,
+        "misses": 1,
+        "maxsize": 32,
+        "currsize": 1
+      },
+      "exec_after_1": 1,
+      "exec_after_2": 1,
+      "r1": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "r2": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "values_match": true,
+      "first_was_miss": true,
+      "second_was_hit": true,
+      "exec_ok": true
+    }
+  },
+  {
+    "case": "repeated_feature_cache_hit_marker",
+    "method": "verify_relation",
+    "passed": true,
+    "details": {
+      "first_miss": true,
+      "second_hit": true,
+      "exec_once": true,
+      "returns_ok": true,
+      "exec_count": 1,
+      "info_1": {
+        "hits": 0,
+        "misses": 1,
+        "maxsize": 32,
+        "currsize": 1
+      },
+      "info_2": {
+        "hits": 1,
+        "misses": 1,
+        "maxsize": 32,
+        "currsize": 1
+      }
+    }
+  },
+  {
+    "case": "mutable_cached_return_alias_marker",
+    "method": "inspect_inputs",
+    "passed": true,
+    "details": {
+      "expected_initial": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "initial_ok": true,
+      "mutation_target_valid": true,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_currsize": 0
+    }
+  },
+  {
+    "case": "mutable_cached_return_alias_marker",
+    "method": "execute_cache",
+    "passed": true,
+    "details": {
+      "exec_after_1": 1,
+      "exec_after_2": 1,
+      "info_after_1": {
+        "hits": 0,
+        "misses": 1,
+        "maxsize": 32,
+        "currsize": 1
+      },
+      "info_after_2": {
+        "hits": 1,
+        "misses": 1,
+        "maxsize": 32,
+        "currsize": 1
+      },
+      "same_object": true,
+      "mutation_applied": true,
+      "mutation_visible": true,
+      "r2_first_element": 9.9,
+      "interaction_ok": true
+    }
+  },
+  {
+    "case": "mutable_cached_return_alias_marker",
+    "method": "verify_relation",
+    "passed": true,
+    "details": {
+      "same_object": true,
+      "mutation_visible": true,
+      "original_first": 0.1,
+      "mutated_first": 9.9
+    }
+  },
+  {
+    "case": "immutable_cached_tuple_marker",
+    "method": "inspect_inputs",
+    "passed": true,
+    "details": {
+      "returns_tuple": true,
+      "values_ok": true,
+      "expected": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_currsize": 0,
+      "exec_count": 0
+    }
+  },
+  {
+    "case": "immutable_cached_tuple_marker",
+    "method": "execute_cache",
+    "passed": true,
+    "details": {
+      "info_before": {
+        "hits": 0,
+        "misses": 0,
+        "maxsize": 32,
+        "currsize": 0
+      },
+      "info_after_1": {
+        "hits": 0,
+        "misses": 1,
+        "maxsize": 32,
+        "currsize": 1
+      },
+      "info_after_2": {
+        "hits": 1,
+        "misses": 1,
+        "maxsize": 32,
+        "currsize": 1
+      },
+      "exec_after_1": 1,
+      "exec_after_2": 1,
+      "r1": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "r2": [
+        0.1,
+        0.2,
+        0.3
+      ],
+      "values_ok": true,
+      "first_miss": true,
+      "second_hit": true,
+      "immutability_rejected": true
+    }
+  },
+  {
+    "case": "immutable_cached_tuple_marker",
+    "method": "verify_relation",
+    "passed": true,
+    "details": {
+      "returns_ok": true,
+      "exec_once": true,
+      "exec_count": 1,
+      "immutability_enforced": true,
+      "hit_recorded": true,
+      "miss_recorded": true,
+      "cache_info": {
+        "hits": 1,
+        "misses": 1,
+        "maxsize": 32,
+        "currsize": 1
+      }
+    }
+  },
+  {
+    "case": "unhashable_list_argument_marker",
+    "method": "inspect_inputs",
+    "passed": true,
+    "details": {
+      "input_is_list": true,
+      "input_hashable": false,
+      "exec_count": 0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_currsize": 0
+    }
+  },
+  {
+    "case": "unhashable_list_argument_marker",
+    "method": "execute_cache",
+    "passed": true,
+    "details": {
+      "exception_type": "TypeError",
+      "body_executed": false,
+      "exec_count": 0,
+      "info_before": {
+        "hits": 0,
+        "misses": 0,
+        "maxsize": 32,
+        "currsize": 0
+      },
+      "info_after": {
+        "hits": 0,
+        "misses": 0,
+        "maxsize": 32,
+        "currsize": 0
+      },
+      "counters_unchanged": true
+    }
+  },
+  {
+    "case": "unhashable_list_argument_marker",
+    "method": "verify_relation",
+    "passed": true,
+    "details": {
+      "exception_raised": true,
+      "exception_type": "TypeError",
+      "body_did_not_execute": true,
+      "counters_unchanged": true,
+      "exec_count": 0,
+      "info_before": {
+        "hits": 0,
+        "misses": 0,
+        "maxsize": 32,
+        "currsize": 0
+      },
+      "info_after": {
+        "hits": 0,
+        "misses": 0,
+        "maxsize": 32,
+        "currsize": 0
+      }
+    }
+  }
+]
