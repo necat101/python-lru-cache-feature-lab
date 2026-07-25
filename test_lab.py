@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """test_lab.py — unittest verification for python-lru-cache-feature-lab"""
 
-import json
 import unittest
 
 import run_lab
@@ -81,68 +80,60 @@ class TestLab(unittest.TestCase):
         self.assertEqual(d["info_before"]["hits"], d["info_after"]["hits"])
         self.assertEqual(d["info_before"]["misses"], d["info_after"]["misses"])
 
-    def test_inspectors_reject_corrupted_inputs(self):
-        # Call the production inspectors - they check real invariants.
-        # Then verify they would fail with corrupted state by checking
-        # what they actually validate.
+    # ------------------------------------------------------------------
+    # Corruption tests for production input-check helpers
+    # ------------------------------------------------------------------
 
-        # repeated / cache hit inspector
-        r = run_lab.repeated_feature_cache_hit_marker_inspect_inputs()
-        self.assertTrue(r["passed"])
-        d = r["details"]
-        # Corrupted: non-hashable input would fail input_hashable
-        # Corrupted: non-zero exec_count would fail
-        # Corrupted: non-empty cache would fail
-        self.assertTrue(d["input_hashable"])
-        self.assertEqual(d["exec_count"], 0)
-        self.assertEqual(d["cache_hits"], 0)
+    def test_repeated_input_check_rejects_corrupted(self):
+        # production helper rejects non-string input
+        self.assertFalse(run_lab.check_repeated_inputs(123, 0, 0, 0, 0))
+        # rejects unhashable input (list)
+        self.assertFalse(run_lab.check_repeated_inputs(["x"], 0, 0, 0, 0))
+        # rejects non-empty cache state
+        self.assertFalse(run_lab.check_repeated_inputs("sample-1", 1, 0, 0, 0))
+        self.assertFalse(run_lab.check_repeated_inputs("sample-1", 0, 1, 0, 0))
+        self.assertFalse(run_lab.check_repeated_inputs("sample-1", 0, 0, 1, 0))
+        # rejects non-zero exec_count
+        self.assertFalse(run_lab.check_repeated_inputs("sample-1", 0, 0, 0, 1))
+        # accepts valid input
+        self.assertTrue(run_lab.check_repeated_inputs("sample-1", 0, 0, 0, 0))
 
-        # If we corrupt the cache, inspector should fail
-        run_lab._repeated_extractor(run_lab.SAMPLE_INPUT)
-        r2 = run_lab.repeated_feature_cache_hit_marker_inspect_inputs()
-        # inspector clears cache at start, so it still passes
-        # the point is the inspector uses real production helpers
-        # to check real invariants
-        self.assertTrue(r2["passed"])
+    def test_mutable_input_check_rejects_corrupted(self):
+        # production helper rejects tuple (should be list)
+        self.assertFalse(run_lab.check_mutable_inputs((0.1, 0.2, 0.3), 0, 0, 0))
+        # rejects wrong values
+        self.assertFalse(run_lab.check_mutable_inputs([9.9, 9.9, 9.9], 0, 0, 0))
+        # rejects empty list
+        self.assertFalse(run_lab.check_mutable_inputs([], 0, 0, 0))
+        # rejects non-empty cache
+        self.assertFalse(run_lab.check_mutable_inputs([0.1, 0.2, 0.3], 1, 0, 0))
+        self.assertFalse(run_lab.check_mutable_inputs([0.1, 0.2, 0.3], 0, 1, 0))
+        # accepts valid input
+        self.assertTrue(run_lab.check_mutable_inputs([0.1, 0.2, 0.3], 0, 0, 0))
 
-        # mutable inspector
-        r = run_lab.mutable_cached_return_alias_marker_inspect_inputs()
-        self.assertTrue(r["passed"])
-        self.assertTrue(r["details"]["initial_ok"])
-        self.assertTrue(r["details"]["mutation_target_valid"])
+    def test_immutable_input_check_rejects_corrupted(self):
+        # production helper rejects list (should be tuple)
+        self.assertFalse(run_lab.check_immutable_inputs([0.1, 0.2, 0.3], 0, 0, 0, 0))
+        # rejects wrong tuple values
+        self.assertFalse(run_lab.check_immutable_inputs((9.9, 9.9, 9.9), 0, 0, 0, 0))
+        # rejects non-empty cache
+        self.assertFalse(run_lab.check_immutable_inputs((0.1, 0.2, 0.3), 1, 0, 0, 0))
+        # rejects non-zero exec_count
+        self.assertFalse(run_lab.check_immutable_inputs((0.1, 0.2, 0.3), 0, 0, 0, 1))
+        # accepts valid input
+        self.assertTrue(run_lab.check_immutable_inputs((0.1, 0.2, 0.3), 0, 0, 0, 0))
 
-        # immutable inspector
-        r = run_lab.immutable_cached_tuple_marker_inspect_inputs()
-        self.assertTrue(r["passed"])
-        self.assertTrue(r["details"]["returns_tuple"])
-        self.assertTrue(r["details"]["values_ok"])
-
-        # unhashable inspector
-        r = run_lab.unhashable_list_argument_marker_inspect_inputs()
-        self.assertTrue(r["passed"])
-        self.assertTrue(r["details"]["input_is_list"])
-        self.assertFalse(r["details"]["input_hashable"])
-
-        # All four production inspectors reject the "corrupted" notion
-        # of using the wrong input type by checking real type/hashability.
-        # This test verifies we are calling the actual production helpers,
-        # not copied expressions.
-        self.assertIs(
-            run_lab.repeated_feature_cache_hit_marker_inspect_inputs.__module__,
-            "run_lab",
-        )
-        self.assertIs(
-            run_lab.mutable_cached_return_alias_marker_inspect_inputs.__module__,
-            "run_lab",
-        )
-        self.assertIs(
-            run_lab.immutable_cached_tuple_marker_inspect_inputs.__module__,
-            "run_lab",
-        )
-        self.assertIs(
-            run_lab.unhashable_list_argument_marker_inspect_inputs.__module__,
-            "run_lab",
-        )
+    def test_unhashable_input_check_rejects_corrupted(self):
+        # production helper rejects hashable replacement (tuple)
+        self.assertFalse(run_lab.check_unhashable_inputs(("a", "b"), 0, 0, 0))
+        # rejects string (hashable)
+        self.assertFalse(run_lab.check_unhashable_inputs("ab", 0, 0, 0))
+        # rejects non-zero exec_count
+        self.assertFalse(run_lab.check_unhashable_inputs(["a", "b"], 1, 0, 0))
+        # rejects non-empty cache
+        self.assertFalse(run_lab.check_unhashable_inputs(["a", "b"], 0, 1, 0))
+        # accepts valid input (list, unhashable)
+        self.assertTrue(run_lab.check_unhashable_inputs(["a", "b"], 0, 0, 0))
 
     def test_twelve_rows_deterministic_unique_ordered(self):
         rows1 = run_lab.run_all()
